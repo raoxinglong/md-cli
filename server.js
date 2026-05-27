@@ -4,7 +4,6 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
-import { createProxyMiddleware } from 'http-proxy-middleware'
 import {
   dcloud,
   parseArgv,
@@ -53,6 +52,7 @@ export function createServer({ port = 8800, host = '127.0.0.1' } = {}) {
   app.use(express.json())
   app.use(express.urlencoded({ extended: true }))
 
+  // 本地上传文件
   app.use('/public', express.static(path.join(__dirname, 'public')))
 
   // 文件上传 API
@@ -90,17 +90,14 @@ export function createServer({ port = 8800, host = '127.0.0.1' } = {}) {
     }
   })
 
-  console.log('代理到: https://md.doocs.org/')
-  app.use(createProxyMiddleware({
-    target: 'https://md.doocs.org/',
-    changeOrigin: true,
-    on: {
-      error: (err, req, res) => {
-        console.error(`代理错误 ${req.path}:`, err)
-        res.status(502).send(`代理服务暂不可用，请检查网络连接 ${err.message}`)
-      },
-    },
-  }))
+  // 提供本地构建的前端静态资源
+  const distDir = path.join(__dirname, 'dist')
+  app.use(express.static(distDir))
+
+  // SPA 回退：所有非 API 请求都返回 index.html
+  app.get('/{*path}', (req, res) => {
+    res.sendFile(path.join(distDir, 'index.html'))
+  })
 
   return app
 }
